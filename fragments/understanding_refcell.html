@@ -31,7 +31,7 @@ times this happens, Rust is confusing to untrained
 brains): <code>RefCell</code>.</p>
 
 <p>There is a Rust rule saying that mutable references shouldn't have any
-alias, what's the point of <code>RefCell</code> just bypassing all that
+alias, what's the point if <code>RefCell</code> just bypassing all that
 restrictions?  All the terms like <em>interior mutability</em> are great.
 But I still couldn't intuitively understand why that's the case until
 recently. But recently I figured out a link that make things fit
@@ -137,7 +137,7 @@ decomposed. <code>RefCell</code> can be thought of a simpler way to write such
 code without doing parallel arrays.</p>
 
 <p>Parallel array and <code>RefCell</code> are still not quite equivalent in this
-context. One of such differences would be self-references and
+context. One such difference would be self-references and
 weak-references. But let's not focus on those details :).</p>
 </body>
 </html>
