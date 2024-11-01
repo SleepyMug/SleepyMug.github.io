@@ -65,7 +65,7 @@ because the code contains circular mutable references. The cycle
 cannot be closed because it needs mutability in two places.</p>
 
 <p>A way to get around this is to use an integer index to represent
-nodes, instead of a reference. And separate the "reference" part of
+each node, instead of a reference. And separate the "reference" part of
 the type definition into a different type.</p>
 
 <pre><code>// Version 2
