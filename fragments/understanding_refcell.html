@@ -1,0 +1,142 @@
+<html><head>
+    <style>
+      body {
+          max-width: 800px;
+          margin: auto;
+          padding: 10px;
+      }
+      code {
+	  background-color: #eeeeee;
+      }
+      pre {
+	  background-color: #eeeeee;
+      }
+    </style>
+</head>
+<body>
+    <!-- <h1>Di Jin's Personal Page</h1> -->
+    <!-- <nav><ul> -->
+    <!--   <li><a href="../index.html">Home</a></li> -->
+    <!--   <li>Publications &amp Projects</li> -->
+    <!--   <li><a href="../random_things.html">Random Things</a></li> -->
+    <!--   <li><a href="../fragments.html">Fragments of my Life</a></li> -->
+    <!-- </ul></nav> -->
+    <!-- <hr /> -->
+
+<h2>A Way to Understand <code>RefCell</code> in Rust</h2>
+
+<p>Rust is great. All the rules around references make sure that no bad
+things happen.  Then something confused me (obviously one of many
+times this happens, Rust is confusing to untrained brains): <code>RefCell</code>.</p>
+
+<p>There is a Rust rule saying that mutable references shouldn't have any
+alias, what's the point of <code>RefCell</code> just baypassing all that
+restrictions?  All the terms like <em>interior mutability</em> are great.
+But I still couldn't intuitively understand why that's the case until
+recently. But recently I figured out a link that make things fit
+together better.</p>
+
+<p>Assume that we have a graph-like data structure and we need to perform
+updates through the edges.</p>
+
+<pre><code>// Version 1
+struct Node&lt;'t&gt; {
+    val: i32,
+    neighbors: Vec&lt;&amp;'t mut Node&lt;'t&gt;&gt;,
+}
+
+fn update_neighbors(node: &amp;mut Node) {
+    for neighbor in node.neighbors.iter_mut() {
+        neighbor.val = neighbor.val + 1;
+    }
+}
+
+fn main() -&gt; (){
+    let mut node0 = Node { val: 4, neighbors: vec![] };
+    let mut node1 = Node { val: 5, neighbors: vec![] };
+    node1.neighbors.push(&amp;mut node0);
+    node0.neighbors.push(&amp;mut node1); // Error! borrowing `node1.neighbors` as mutable more than once
+    update_neighbors(&amp;mut node2);
+}
+</code></pre>
+
+<p>Naturally a graph are allowed to have cycles, but here it cannot work
+because the code contains circular mutable references. The cycle
+cannot be closed because it needs mutability in two places.</p>
+
+<p>A way to get around this is to use an integer index to represent
+nodes, instead of a reference. And separate the "reference" part of
+the type definition into a different type.</p>
+
+<pre><code>// Version 2
+struct NodeContent {
+    val: i32,
+}
+
+struct Node {
+    neighbors: Vec&lt;usize&gt;,
+}
+
+fn update_neighbors(node: &amp;Node, contents: &amp;mut Vec&lt;NodeContent&gt;) {
+    for neighbor in node.neighbors.iter() {
+        contents[*neighbor].val = contents[*neighbor].val + 1;
+    }
+}
+
+fn main() -&gt; () {
+    let mut node0 = Node { neighbors: vec![] };
+    let mut node1 = Node { neighbors: vec![] };
+    let mut contents = vec![ NodeContent { val: 4 }, NodeContent { val: 5 }];
+    node1.neighbors.push(0);
+    node0.neighbors.push(1);
+    update_neighbors(&amp;node1, &amp;mut contents);
+}
+</code></pre>
+
+<p>The only problem with this solution is that now everytime a <code>Node</code> is passed around,
+the <code>contents</code> vector needs to follow it. Parallel array should not be the best we can do in year 2024.
+Now a <code>RefCell</code> version of the solution.</p>
+
+<pre><code>// Version 3
+use std::cell::RefCell;
+
+struct NodeInner&lt;'t&gt; {
+    val: i32,
+    neighbors: Vec&lt;&amp;'t RefCell&lt;NodeInner&lt;'t&gt;&gt;&gt;,
+}
+type Node&lt;'t&gt; = RefCell&lt;NodeInner&lt;'t&gt;&gt;;
+
+fn update_neighbors(node_cell: &amp;Node) {
+    let node = node_cell.borrow();
+    for neighbor_cell in node.neighbors.iter() {
+        let mut neighbor = neighbor_cell.borrow_mut();
+        neighbor.val = neighbor.val + 1;
+    }
+}
+
+fn main() -&gt; (){
+    let node1 = RefCell::new(NodeInner { val: 4, neighbors: vec![] });
+    let node2 = RefCell::new(NodeInner { val: 5, neighbors: vec![] });
+    node2.borrow_mut().neighbors.push(&amp;node1);
+    node1.borrow_mut().neighbors.push(&amp;node2);
+    update_neighbors(&amp;node2);
+}
+</code></pre>
+
+<p><code>Node</code> is now represented as a <code>RefCell</code>. The version 3 structurally
+looks like the version 1 of the program, but in spirit it's closer to
+vesion 2. The <code>RefCell</code> references are analogous to the indices in
+version 2, and <code>borrow_mut</code> is analogous to using the indices to
+mutate the <code>content</code> vector.</p>
+
+<p>Now let's go back to the question: the intuitive reason that it is
+perfectly fine to get mutable references out of immutable ones is the
+existence of techniques shown in version 2, where mutability is
+decomposed. <code>RefCell</code> can be thought of a simpler way to write such
+code without doing parallel arrays.</p>
+
+<p>Parallel array and <code>RefCell</code> are still not quite equivalent in this
+context. One of such differences would be self-references and
+weak-references. But let's not focus on those details :).</p>
+</body>
+</html>
