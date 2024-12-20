@@ -24,7 +24,7 @@ def base_html_selected(option_on_page: Option, sub_page_body: Html):
         line = html_lines[i]
         on_page = option_on_page + '.html'
         if option_on_page + '.html' in line:
-            line = line.replace(f'<a href="{on_page}">', '').replace('</a>', '')
+            line = line.replace(f'<a href="/{on_page}">', '').replace('</a>', '')
             html_lines[i] = line
         elif 'page-body' in line:
             text = replace_elem('page-body', line, sub_page_body)
