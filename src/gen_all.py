@@ -17,7 +17,7 @@ def replace_elem(name, line, html):
     n_space = line.index(elem)  # will throw error if not found
     return indent(html, n_space)
 
-def base_html(option_on_page: Option, sub_page_body: Html):
+def base_html_selected(option_on_page: Option, sub_page_body: Html):
     html = open(template_dir / "base.tplt.html").read()
     html_lines = html.split('\n')
     for i in range(len(html_lines)):
@@ -32,6 +32,9 @@ def base_html(option_on_page: Option, sub_page_body: Html):
     html = '\n'.join(html_lines)
     return html
 
+def base_html(sub_page_body: Html):
+    return base_html_selected('nosuchpagematch', sub_page_body)
+
 def index_html():
     html = open(template_dir / "index.tplt.html").read()
     return html
@@ -43,17 +46,28 @@ def publications_html():
 def random_things_html():
     return '<h3>Random Things</h3> <p>To be filled :)</p>'
 
+def fragment_names():
+    return [f.name[:-len('.tplt.html')] for f in (template_dir / "fragments").iterdir()]
+
 def fragments_html():
     html = open(template_dir / "fragments.tplt.html").read()
     return html
 
-if __name__ == '__main__':
-    with open(root_dir / "index.html", 'w') as f:
-        f.write(base_html('index', index_html()))
-    with open(root_dir / "publications.html", 'w') as f:
-        f.write(base_html('publications', publications_html()))
-    with open(root_dir / "random_things.html", 'w') as f:
-        f.write(base_html('random_things', random_things_html()))
-    with open(root_dir / "fragments.html", 'w') as f:
-        f.write(base_html('fragments', fragments_html()))
+def single_fragment_html(fragment_name):
+    inner_html = open(template_dir / "fragments" / (fragment_name + ".tplt.html")).read()
+    return base_html(inner_html)
+
+def gen_file_at(path_str: str, html: Html):
+    path = Path(path_str)
+    path.parent.mkdir(755, parents=True, exist_ok=True)
+    with open(root_dir / path, 'w') as f:
+        f.write(html)
         
+if __name__ == '__main__':
+    gen_file_at("index.html", base_html_selected('index', index_html()))
+    gen_file_at("publications.html", base_html_selected('publications', publications_html()))
+    gen_file_at("random_things.html", base_html_selected('random_things', random_things_html()))
+    gen_file_at("fragments.html", base_html_selected('fragments', fragments_html()))
+    for fragment_name in fragment_names():
+        gen_file_at(root_dir / "fragments" / (fragment_name + ".html"),
+                    single_fragment_html(fragment_name))
